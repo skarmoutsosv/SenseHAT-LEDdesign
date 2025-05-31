@@ -16,7 +16,7 @@
 του διαδικτυακού μαθήματος [Διαδίκτυο των Πραγμάτων (IoT) στην Πράξη: με Raspberry Pi και Python – Αναθεωρημένη έκδοση 2025](https://apps.mathesis.cup.gr/learning/course/course-v1:ComputerScience+CS4.1+25B/home "Διαδίκτυο των πραγμάτων"), με διδάσκοντα τον **Νίκο Γκικόπουλο (ngick)**, το οποίο παρέχεται από το [Κέντρο Ανοικτών Διαδικτυακών Μαθημάτων Mathesis](https://mathesis.cup.gr/ "mathesis.cup.gr")
 
 
-Πηγαίος κώδικας: https://github.com/skarmoutsosv/SenseHAT-LEDdesign
+Πηγαίος κώδικας: [https://github.com/skarmoutsosv/SenseHAT-LEDdesign](https://github.com/skarmoutsosv/SenseHAT-LEDdesign "Πηγαίος κώδικας")
 
-Επίδειξη λειτουργίας: https://skarmoutsosv.github.io/SenseHAT-LEDdesign/
+Επίδειξη λειτουργίας: [https://skarmoutsosv.github.io/SenseHAT-LEDdesign/](https://skarmoutsosv.github.io/SenseHAT-LEDdesign/ "Επίδειξη λειτουργίας")
 
