@@ -18,5 +18,5 @@
 
 Πηγαίος κώδικας: [https://github.com/skarmoutsosv/SenseHAT-LEDdesign](https://github.com/skarmoutsosv/SenseHAT-LEDdesign "Πηγαίος κώδικας")
 
-Επίδειξη λειτουργίας: [https://skarmoutsosv.github.io/SenseHAT-LEDdesign/](https://skarmoutsosv.github.io/SenseHAT-LEDdesign/ "Επίδειξη λειτουργίας")
+Επίδειξη λειτουργίας: [https://skarmoutsosv.github.io/SenseHAT-LEDdesign/leds.html](https://skarmoutsosv.github.io/SenseHAT-LEDdesign/leds.html "Επίδειξη λειτουργίας")
 
