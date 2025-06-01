@@ -321,34 +321,53 @@
    * Γεμίζει το πλέγμα τυχαία με τα διαθέσιμα χρώματα, με συμμετρικό τρόπο.
    * Ενημερώνει τον κώδικα μετά τη γέμιση.
    */
-  function fillSymmetric() {
+function fillSymmetric() {
   const colors = Array.from(colorSwatches).map(s => s.dataset.color);
-  
-  // Δημιουργούμε τυχαία τα 4 πρώτα LED των 4 πρώτων σειρών (16 LED)
-  for(let r=0; r<4; r++) {
-    for(let c=0; c<4; c++) {
-      const col = colors[Math.floor(Math.random() * colors.length)];
-      matrix[r][c] = col;
+  const nonBlackColors = colors.filter(c => c !== '#000000');
+
+  // Δημιουργία πίνακα 4x4 για την πάνω αριστερή γωνία
+  let cornerColors = [];
+
+  // Προσθέτουμε 8 μαύρα
+  for(let i = 0; i < 8; i++) {
+    cornerColors.push('#000000');
+  }
+  // Προσθέτουμε 8 τυχαία μη μαύρα χρώματα
+  for(let i = 0; i < 8; i++) {
+    const col = nonBlackColors[Math.floor(Math.random() * nonBlackColors.length)];
+    cornerColors.push(col);
+  }
+
+  // Ανακατεύουμε τυχαία τα 16 χρώματα ώστε να μην είναι τα μαύρα συγκεντρωμένα
+  for(let i = cornerColors.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [cornerColors[i], cornerColors[j]] = [cornerColors[j], cornerColors[i]];
+  }
+
+  // Γέμισμα της πάνω αριστερής γωνίας 4x4 με τα ανακατεμένα χρώματα
+  for(let r = 0; r < 4; r++) {
+    for(let c = 0; c < 4; c++) {
+      matrix[r][c] = cornerColors[r * 4 + c];
     }
   }
-  
-  // Καθρεφτισμός οριζόντια (αντιγραφή στη στήλη 7-c)
-  for(let r=0; r<4; r++) {
-    for(let c=0; c<4; c++) {
+
+  // Καθρεφτισμός οριζόντια (στη στήλη 7-c)
+  for(let r = 0; r < 4; r++) {
+    for(let c = 0; c < 4; c++) {
       matrix[r][7 - c] = matrix[r][c];
     }
   }
-  
-  // Καθρεφτισμός κάθετα (αντιγραφή στη σειρά 7-r)
-  for(let r=0; r<4; r++) {
-    for(let c=0; c<8; c++) {
+
+  // Καθρεφτισμός κάθετα (στη σειρά 7-r)
+  for(let r = 0; r < 4; r++) {
+    for(let c = 0; c < 8; c++) {
       matrix[7 - r][c] = matrix[r][c];
     }
   }
-  
-  // Ενημέρωση της εμφάνισης των LED στο DOM
-  for(let r=0; r<8; r++) {
-    for(let c=0; c<8; c++) {
+
+  // Ενημέρωση DOM LED
+  for(let r = 0; r < 8; r++) {
+    for(let c = 0; c < 8; c++) {
       const col = matrix[r][c];
       const led = ledMatrix.children[r * cols + c];
       led.style.backgroundColor = col;
@@ -359,9 +378,10 @@
       }
     }
   }
-  
+
   updatePythonCode();
 }
+
 
 
   // Αρχική ενημέρωση κώδικα κατά τη φόρτωση της σελίδας
