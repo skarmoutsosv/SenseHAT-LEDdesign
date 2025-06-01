@@ -138,7 +138,8 @@
 <!-- Κουμπιά ελέγχου -->
 <div id="controls">
   <button onclick="clearMatrix()">Καθαρισμός</button>
-  <button onclick="fillRandom()">Τυχαία</button>
+  <!-- <button onclick="fillRandom()">Τυχαία</button> -->
+  <button onclick="fillSymmetric()">Τυχαία συμμετρικά</button>
 </div>
 
 <!-- Περιοχή εμφάνισης κώδικα Python -->
@@ -315,6 +316,53 @@
     }
     updatePythonCode();
   }
+
+  /**
+   * Γεμίζει το πλέγμα τυχαία με τα διαθέσιμα χρώματα, με συμμετρικό τρόπο.
+   * Ενημερώνει τον κώδικα μετά τη γέμιση.
+   */
+  function fillSymmetric() {
+  const colors = Array.from(colorSwatches).map(s => s.dataset.color);
+  
+  // Δημιουργούμε τυχαία τα 4 πρώτα LED των 4 πρώτων σειρών (16 LED)
+  for(let r=0; r<4; r++) {
+    for(let c=0; c<4; c++) {
+      const col = colors[Math.floor(Math.random() * colors.length)];
+      matrix[r][c] = col;
+    }
+  }
+  
+  // Καθρεφτισμός οριζόντια (αντιγραφή στη στήλη 7-c)
+  for(let r=0; r<4; r++) {
+    for(let c=0; c<4; c++) {
+      matrix[r][7 - c] = matrix[r][c];
+    }
+  }
+  
+  // Καθρεφτισμός κάθετα (αντιγραφή στη σειρά 7-r)
+  for(let r=0; r<4; r++) {
+    for(let c=0; c<8; c++) {
+      matrix[7 - r][c] = matrix[r][c];
+    }
+  }
+  
+  // Ενημέρωση της εμφάνισης των LED στο DOM
+  for(let r=0; r<8; r++) {
+    for(let c=0; c<8; c++) {
+      const col = matrix[r][c];
+      const led = ledMatrix.children[r * cols + c];
+      led.style.backgroundColor = col;
+      if(col === '#000000') {
+        led.classList.remove('on');
+      } else {
+        led.classList.add('on');
+      }
+    }
+  }
+  
+  updatePythonCode();
+}
+
 
   // Αρχική ενημέρωση κώδικα κατά τη φόρτωση της σελίδας
   updatePythonCode();
