@@ -1,392 +1,412 @@
 <!DOCTYPE html>
 <html lang="el">
-<head>
-<meta charset="UTF-8" />
-<title>Sense HAT LED Matrix Simulator</title>
-<style>
-  body {
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-    background: #222;
-    color: #eee;
-    text-align: center;
-    padding: 20px;
-    margin: 0;
-  }
-  h2 {
-    margin-bottom: 10px;
-  }
-  #led-matrix {
-    display: grid;
-    grid-template-columns: repeat(8, 35px);
-    grid-template-rows: repeat(8, 35px);
-    gap: 5px;
-    justify-content: center;
-    margin: 20px auto;
-  }
-  .led {
-    width: 35px;
-    height: 35px;
-    border-radius: 6px;
-    background: #111;
-    box-shadow: inset 0 0 5px #000;
-    cursor: pointer;
-    transition: background-color 0.2s, box-shadow 0.2s;
-    user-select: none;
-  }
-  .led.on {
-    box-shadow: 0 0 10px 3px;
-  }
-  #color-picker {
-    margin: 10px auto 20px;
-    display: flex;
-    justify-content: center;
-    gap: 12px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-  .color-swatch {
-    width: 30px;
-    height: 30px;
-    border-radius: 4px;
-    cursor: pointer;
-    border: 2px solid transparent;
-    box-shadow: 0 0 3px #000;
-  }
-  .color-swatch.selected {
-    border-color: #fff;
-    box-shadow: 0 0 8px #fff;
-  }
-  label[for="custom-color-picker"] {
-    color: #eee;
-    font-weight: bold;
-    margin-right: 6px;
-    user-select: none;
-  }
-  #custom-color-picker {
-    width: 40px;
-    height: 40px;
-    border: none;
-    cursor: pointer;
-    border-radius: 4px;
-    box-shadow: 0 0 5px #fff;
-  }
-  #controls {
-    margin-top: 15px;
-  }
-  button {
-    background: #444;
-    border: none;
-    padding: 8px 16px;
-    margin: 0 8px;
-    color: #eee;
-    font-size: 16px;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background 0.3s;
-  }
-  button:hover {
-    background: #666;
-  }
-  #output {
-    margin-top: 20px;
-    width: 100%;
-    max-width: 900px;
-    height: calc(22 * 1.2em);
-    background: #111;
-    color: #eee;
-    border: none;
-    padding: 10px;
-    font-family: monospace;
-    resize: vertical;
-    overflow: auto;
-    box-sizing: border-box;
-  }
-  @media (max-width: 600px) {
-    #color-picker {
-      gap: 8px;
-    }
-    button {
-      margin: 6px 4px;
-      padding: 6px 12px;
-      font-size: 14px;
-    }
-  }
-</style>
-</head>
-<body>
-
-<h2>Raspberry Pi Sense HAT - Σχεδίαση στην συστοιχία LED</h2>
-
-<!-- Παλέτα χρωμάτων και επιλογή προσαρμοσμένου χρώματος -->
-<div id="color-picker">
-  <div class="color-swatch selected" style="background:#FF0000" data-color="#FF0000"></div>
-  <div class="color-swatch" style="background:#00FF00" data-color="#00FF00"></div>
-  <div class="color-swatch" style="background:#0000FF" data-color="#0000FF"></div>
-  <div class="color-swatch" style="background:#FFFF00" data-color="#FFFF00"></div>
-  <div class="color-swatch" style="background:#FF00FF" data-color="#FF00FF"></div>
-  <div class="color-swatch" style="background:#00FFFF" data-color="#00FFFF"></div>
-  <div class="color-swatch" style="background:#FFFFFF" data-color="#FFFFFF"></div>
-  <div class="color-swatch" style="background:#000000" data-color="#000000"></div>
-
-  <label for="custom-color-picker">Προσαρμοσμένο χρώμα</label>
-  <input type="color" id="custom-color-picker" value="#FF0000" title="Επιλογή προσαρμοσμένου χρώματος">
-</div>
-
-<!-- Πλέγμα LED -->
-<div id="led-matrix"></div>
-
-<!-- Κουμπιά ελέγχου -->
-<div id="controls">
-  <button onclick="clearMatrix()">Καθαρισμός</button>
-  <!-- <button onclick="fillRandom()">Τυχαία</button> -->
-  <button onclick="fillSymmetric()">Τυχαία συμμετρικά</button>
-</div>
-
-<!-- Περιοχή εμφάνισης κώδικα Python -->
-<textarea id="output" placeholder="Εξαγωγή δεδομένων πλέγματος εδώ..."></textarea>
-
-<script>
-  // Διαστάσεις πλέγματος
-  const rows = 8;
-  const cols = 8;
-
-  // Στοιχεία DOM
-  const ledMatrix = document.getElementById('led-matrix');
-  const output = document.getElementById('output');
-  const colorSwatches = document.querySelectorAll('.color-swatch');
-  const customColorPicker = document.getElementById('custom-color-picker');
-
-  // Τρέχον επιλεγμένο χρώμα (αρχικά κόκκινο)
-  let currentColor = '#FF0000';
-
-  // Κατάσταση mouse για drag painting
-  let mouseDown = false;
-
-  // Πίνακας αποθήκευσης χρωμάτων κάθε LED (αρχικά μαύρο)
-  const matrix = Array(rows).fill(null).map(() => Array(cols).fill('#000000'));
-
-  /**
-   * Ενημερώνει το textarea με τον Python κώδικα που αντιστοιχεί στο τρέχον σχέδιο.
-   */
-  function updatePythonCode() {
-    let codeLines = [];
-    codeLines.push("from sense_hat import SenseHat");
-    codeLines.push("import time");
-    codeLines.push("");
-    codeLines.push("s = SenseHat()");
-    codeLines.push("");
-    codeLines.push("shape = [");
-
-    let pixels = [];
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        let hex = matrix[r][c];
-        let bigint = parseInt(hex.slice(1), 16);
-        let rVal = (bigint >> 16) & 255;
-        let gVal = (bigint >> 8) & 255;
-        let bVal = bigint & 255;
-        pixels.push(`(${rVal},${gVal},${bVal})`);
+  <head>
+    <meta charset="UTF-8" />
+    <title>Sense HAT LED Matrix Simulator</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: #222;
+        color: #eee;
+        text-align: center;
+        padding: 20px;
+        margin: 0;
       }
-    }
-
-    for (let i = 0; i < pixels.length; i += 8) {
-      let linePixels = pixels.slice(i, i + 8).join(", ");
-      codeLines.push(linePixels + (i + 8 < pixels.length ? "," : ""));
-    }
-
-    codeLines.push("]");
-    codeLines.push("");
-    codeLines.push("s.set_pixels(shape)");
-
-    output.value = codeLines.join("\n");
-  }
-
-  /**
-   * Βάφει ή σβήνει ένα LED στη θέση (r, c).
-   * Αν το LED έχει ήδη το επιλεγμένο χρώμα, σβήνει (μαύρο).
-   * Αλλιώς βάφεται με το επιλεγμένο χρώμα.
-   */
-  function paintLED(r, c) {
-    if (matrix[r][c] === currentColor) {
-      // Toggle off (σβήσιμο)
-      matrix[r][c] = '#000000';
-    } else {
-      // Βάψιμο με το επιλεγμένο χρώμα
-      matrix[r][c] = currentColor;
-    }
-    const led = ledMatrix.children[r * cols + c];
-    led.style.backgroundColor = matrix[r][c];
-    if (matrix[r][c] === '#000000') {
-      led.classList.remove('on');
-    } else {
-      led.classList.add('on');
-    }
-    updatePythonCode();
-  }
-
-  /**
-   * Δημιουργεί το πλέγμα LED και προσθέτει event listeners για paint με κλικ και σύρσιμο.
-   */
-  for(let r=0; r<rows; r++) {
-    for(let c=0; c<cols; c++) {
-      const led = document.createElement('div');
-      led.classList.add('led');
-      led.dataset.row = r;
-      led.dataset.col = c;
-      led.style.backgroundColor = '#000000';
-
-      // Ξεκινάμε paint με πάτημα mouse
-      led.addEventListener('mousedown', (e) => {
-        e.preventDefault(); // Αποφυγή επιλογής κειμένου
-        mouseDown = true;
-        paintLED(r, c);
-      });
-
-      // Συνεχίζουμε paint με σύρσιμο πάνω από LED
-      led.addEventListener('mouseover', (e) => {
-        if (mouseDown) {
-          paintLED(r, c);
+      h2 {
+        margin-bottom: 10px;
+      }
+      #led-matrix {
+        display: grid;
+        grid-template-columns: repeat(8, 35px);
+        grid-template-rows: repeat(8, 35px);
+        gap: 5px;
+        justify-content: center;
+        margin: 20px auto;
+      }
+      .led {
+        width: 35px;
+        height: 35px;
+        border-radius: 6px;
+        background: #111;
+        box-shadow: inset 0 0 5px #000;
+        cursor: pointer;
+        transition: background-color 0.2s, box-shadow 0.2s;
+        user-select: none;
+      }
+      .led.on {
+        box-shadow: 0 0 10px 3px;
+      }
+      #color-picker {
+        margin: 10px auto 20px;
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .color-swatch {
+        width: 30px;
+        height: 30px;
+        border-radius: 4px;
+        cursor: pointer;
+        border: 2px solid transparent;
+        box-shadow: 0 0 3px #000;
+      }
+      .color-swatch.selected {
+        border-color: #fff;
+        box-shadow: 0 0 8px #fff;
+      }
+      label[for="custom-color-picker"] {
+        color: #eee;
+        font-weight: bold;
+        margin-right: 6px;
+        user-select: none;
+      }
+      #custom-color-picker {
+        width: 40px;
+        height: 40px;
+        border: none;
+        cursor: pointer;
+        border-radius: 4px;
+        box-shadow: 0 0 5px #fff;
+      }
+      #controls {
+        margin-top: 15px;
+      }
+      button {
+        background: #444;
+        border: none;
+        padding: 8px 16px;
+        margin: 0 8px;
+        color: #eee;
+        font-size: 16px;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background 0.3s;
+      }
+      button:hover {
+        background: #666;
+      }
+      #output {
+        margin-top: 20px;
+        width: 100%;
+        max-width: 900px;
+        height: calc(22 * 1.2em);
+        background: #111;
+        color: #eee;
+        border: none;
+        padding: 10px;
+        font-family: monospace;
+        resize: vertical;
+        overflow: auto;
+        box-sizing: border-box;
+      }
+      @media (max-width: 600px) {
+        #color-picker {
+          gap: 8px;
         }
-      });
-
-      ledMatrix.appendChild(led);
-    }
-  }
-
-  // Απενεργοποίηση paint όταν αφήνουμε το κουμπί του mouse
-  document.body.addEventListener('mouseup', () => {
-    mouseDown = false;
-  });
-
-  /**
-   * Επιλογή χρώματος από παλέτα.
-   * Ενημερώνει το τρέχον χρώμα και επισημαίνει το επιλεγμένο swatch.
-   */
-  colorSwatches.forEach(swatch => {
-    swatch.addEventListener('click', () => {
-      colorSwatches.forEach(s => s.classList.remove('selected'));
-      swatch.classList.add('selected');
-      currentColor = swatch.dataset.color;
-      customColorPicker.value = currentColor;
-    });
-  });
-
-  /**
-   * Επιλογή προσαρμοσμένου χρώματος από το input type=color.
-   * Αφαιρεί την επιλογή από τα προκαθορισμένα χρώματα.
-   */
-  customColorPicker.addEventListener('input', () => {
-    currentColor = customColorPicker.value.toUpperCase();
-    colorSwatches.forEach(s => s.classList.remove('selected'));
-  });
-
-  /**
-   * Καθαρίζει το πλέγμα (όλα τα LED γίνονται μαύρα) και ενημερώνει τον κώδικα.
-   */
-  function clearMatrix() {
-    for(let r=0; r<rows; r++) {
-      for(let c=0; c<cols; c++) {
-        matrix[r][c] = '#000000';
-        const led = ledMatrix.children[r*cols + c];
-        led.style.backgroundColor = '#000000';
-        led.classList.remove('on');
+        button {
+          margin: 6px 4px;
+          padding: 6px 12px;
+          font-size: 14px;
+        }
       }
-    }
-    updatePythonCode();
-  }
+    </style>
+  </head>
+  <body>
+    <h2>Raspberry Pi Sense HAT - Σχεδίαση στην συστοιχία LED</h2>
 
-  /**
-   * Γεμίζει το πλέγμα τυχαία με τα διαθέσιμα χρώματα (συμπεριλαμβανομένου και του μαύρου).
-   * Ενημερώνει τον κώδικα μετά τη γέμιση.
-   */
-  function fillRandom() {
-    const colors = Array.from(colorSwatches).map(s => s.dataset.color);
-    for(let r=0; r<rows; r++) {
-      for(let c=0; c<cols; c++) {
-        const col = colors[Math.floor(Math.random()*colors.length)];
-        matrix[r][c] = col;
-        const led = ledMatrix.children[r*cols + c];
-        led.style.backgroundColor = col;
-        if(col === '#000000') {
-          led.classList.remove('on');
+    <!-- Παλέτα χρωμάτων και επιλογή προσαρμοσμένου χρώματος -->
+    <div id="color-picker">
+      <div
+        class="color-swatch selected"
+        style="background: #ff0000"
+        data-color="#FF0000"
+      ></div>
+      <div
+        class="color-swatch"
+        style="background: #00ff00"
+        data-color="#00FF00"
+      ></div>
+      <div
+        class="color-swatch"
+        style="background: #0000ff"
+        data-color="#0000FF"
+      ></div>
+      <div
+        class="color-swatch"
+        style="background: #ffff00"
+        data-color="#FFFF00"
+      ></div>
+      <div
+        class="color-swatch"
+        style="background: #ff00ff"
+        data-color="#FF00FF"
+      ></div>
+      <div
+        class="color-swatch"
+        style="background: #00ffff"
+        data-color="#00FFFF"
+      ></div>
+      <div
+        class="color-swatch"
+        style="background: #ffffff"
+        data-color="#FFFFFF"
+      ></div>
+      <div
+        class="color-swatch"
+        style="background: #000000"
+        data-color="#000000"
+      ></div>
+
+      <label for="custom-color-picker">Προσαρμοσμένο χρώμα</label>
+      <input
+        type="color"
+        id="custom-color-picker"
+        value="#FF0000"
+        title="Επιλογή προσαρμοσμένου χρώματος"
+      />
+    </div>
+
+    <!-- Πλέγμα LED -->
+    <div id="led-matrix"></div>
+
+    <!-- Κουμπιά ελέγχου -->
+    <div id="controls">
+      <button onclick="clearMatrix()">Καθαρισμός</button>
+      <!-- <button onclick="fillRandom()">Τυχαία</button> -->
+      <button onclick="fillSymmetric()">Τυχαία συμμετρικά</button>
+    </div>
+
+    <!-- Περιοχή εμφάνισης κώδικα Python -->
+    <textarea
+      id="output"
+      placeholder="Εξαγωγή δεδομένων πλέγματος εδώ..."
+    ></textarea>
+
+    <script>
+      // Διαστάσεις πλέγματος
+      const rows = 8;
+      const cols = 8;
+
+      // Στοιχεία DOM
+      const ledMatrix = document.getElementById("led-matrix");
+      const output = document.getElementById("output");
+      const colorSwatches = document.querySelectorAll(".color-swatch");
+      const customColorPicker = document.getElementById("custom-color-picker");
+
+      // Τρέχον επιλεγμένο χρώμα (αρχικά κόκκινο)
+      let currentColor = "#FF0000";
+
+      // Κατάσταση mouse για drag painting
+      let mouseDown = false;
+
+      // Πίνακας αποθήκευσης χρωμάτων κάθε LED (αρχικά μαύρο)
+      const matrix = Array(rows)
+        .fill(null)
+        .map(() => Array(cols).fill("#000000"));
+
+      /**
+       * Ενημερώνει το textarea με τον Python κώδικα που αντιστοιχεί στο τρέχον σχέδιο.
+       */
+      function updatePythonCode() {
+        let codeLines = [];
+        codeLines.push("from sense_hat import SenseHat");
+        codeLines.push("import time");
+        codeLines.push("");
+        codeLines.push("s = SenseHat()");
+        codeLines.push("");
+        codeLines.push("shape = [");
+
+        let pixels = [];
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            let hex = matrix[r][c];
+            let bigint = parseInt(hex.slice(1), 16);
+            let rVal = (bigint >> 16) & 255;
+            let gVal = (bigint >> 8) & 255;
+            let bVal = bigint & 255;
+            pixels.push(`(${rVal},${gVal},${bVal})`);
+          }
+        }
+
+        for (let i = 0; i < pixels.length; i += 8) {
+          let linePixels = pixels.slice(i, i + 8).join(", ");
+          codeLines.push(linePixels + (i + 8 < pixels.length ? "," : ""));
+        }
+
+        codeLines.push("]");
+        codeLines.push("");
+        codeLines.push("s.set_pixels(shape)");
+
+        output.value = codeLines.join("\n");
+      }
+
+      /**
+       * Βάφει ή σβήνει ένα LED στη θέση (r, c).
+       * Αν το LED έχει ήδη το επιλεγμένο χρώμα, σβήνει (μαύρο).
+       * Αλλιώς βάφεται με το επιλεγμένο χρώμα.
+       */
+      function paintLED(r, c) {
+        if (matrix[r][c] === currentColor) {
+          // Toggle off (σβήσιμο)
+          matrix[r][c] = "#000000";
         } else {
-          led.classList.add('on');
+          // Βάψιμο με το επιλεγμένο χρώμα
+          matrix[r][c] = currentColor;
+        }
+        const led = ledMatrix.children[r * cols + c];
+        led.style.backgroundColor = matrix[r][c];
+        if (matrix[r][c] === "#000000") {
+          led.classList.remove("on");
+        } else {
+          led.classList.add("on");
+        }
+        updatePythonCode();
+      }
+
+      /**
+       * Δημιουργεί το πλέγμα LED και προσθέτει event listeners για paint με κλικ και σύρσιμο.
+       */
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const led = document.createElement("div");
+          led.classList.add("led");
+          led.dataset.row = r;
+          led.dataset.col = c;
+          led.style.backgroundColor = "#000000";
+
+          // Ξεκινάμε paint με πάτημα mouse
+          led.addEventListener("mousedown", (e) => {
+            e.preventDefault(); // Αποφυγή επιλογής κειμένου
+            mouseDown = true;
+            paintLED(r, c);
+          });
+
+          // Συνεχίζουμε paint με σύρσιμο πάνω από LED
+          led.addEventListener("mouseover", (e) => {
+            if (mouseDown) {
+              paintLED(r, c);
+            }
+          });
+
+          ledMatrix.appendChild(led);
         }
       }
-    }
-    updatePythonCode();
-  }
 
-  /**
-   * Γεμίζει το πλέγμα τυχαία με τα διαθέσιμα χρώματα, με συμμετρικό τρόπο.
-   * Ενημερώνει τον κώδικα μετά τη γέμιση.
-   */
-function fillSymmetric() {
-  const colors = Array.from(colorSwatches).map(s => s.dataset.color);
-  const nonBlackColors = colors.filter(c => c !== '#000000');
+      // Απενεργοποίηση paint όταν αφήνουμε το κουμπί του mouse
+      document.body.addEventListener("mouseup", () => {
+        mouseDown = false;
+      });
 
-  // Δημιουργία πίνακα 4x4 για την πάνω αριστερή γωνία
-  let cornerColors = [];
+      /**
+       * Επιλογή χρώματος από παλέτα.
+       * Ενημερώνει το τρέχον χρώμα και επισημαίνει το επιλεγμένο swatch.
+       */
+      colorSwatches.forEach((swatch) => {
+        swatch.addEventListener("click", () => {
+          colorSwatches.forEach((s) => s.classList.remove("selected"));
+          swatch.classList.add("selected");
+          currentColor = swatch.dataset.color;
+          customColorPicker.value = currentColor;
+        });
+      });
 
-  // Προσθέτουμε 8 μαύρα
-  for(let i = 0; i < 8; i++) {
-    cornerColors.push('#000000');
-  }
-  // Προσθέτουμε 8 τυχαία μη μαύρα χρώματα
-  for(let i = 0; i < 8; i++) {
-    const col = nonBlackColors[Math.floor(Math.random() * nonBlackColors.length)];
-    cornerColors.push(col);
-  }
+      /**
+       * Επιλογή προσαρμοσμένου χρώματος από το input type=color.
+       * Αφαιρεί την επιλογή από τα προκαθορισμένα χρώματα.
+       */
+      customColorPicker.addEventListener("input", () => {
+        currentColor = customColorPicker.value.toUpperCase();
+        colorSwatches.forEach((s) => s.classList.remove("selected"));
+      });
 
-  // Ανακατεύουμε τυχαία τα 16 χρώματα ώστε να μην είναι τα μαύρα συγκεντρωμένα
-  for(let i = cornerColors.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [cornerColors[i], cornerColors[j]] = [cornerColors[j], cornerColors[i]];
-  }
-
-  // Γέμισμα της πάνω αριστερής γωνίας 4x4 με τα ανακατεμένα χρώματα
-  for(let r = 0; r < 4; r++) {
-    for(let c = 0; c < 4; c++) {
-      matrix[r][c] = cornerColors[r * 4 + c];
-    }
-  }
-
-  // Καθρεφτισμός οριζόντια (στη στήλη 7-c)
-  for(let r = 0; r < 4; r++) {
-    for(let c = 0; c < 4; c++) {
-      matrix[r][7 - c] = matrix[r][c];
-    }
-  }
-
-  // Καθρεφτισμός κάθετα (στη σειρά 7-r)
-  for(let r = 0; r < 4; r++) {
-    for(let c = 0; c < 8; c++) {
-      matrix[7 - r][c] = matrix[r][c];
-    }
-  }
-
-  // Ενημέρωση DOM LED
-  for(let r = 0; r < 8; r++) {
-    for(let c = 0; c < 8; c++) {
-      const col = matrix[r][c];
-      const led = ledMatrix.children[r * cols + c];
-      led.style.backgroundColor = col;
-      if(col === '#000000') {
-        led.classList.remove('on');
-      } else {
-        led.classList.add('on');
+      /**
+       * Καθαρίζει το πλέγμα (όλα τα LED γίνονται μαύρα) και ενημερώνει τον κώδικα.
+       */
+      function clearMatrix() {
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            matrix[r][c] = "#000000";
+            const led = ledMatrix.children[r * cols + c];
+            led.style.backgroundColor = "#000000";
+            led.classList.remove("on");
+          }
+        }
+        updatePythonCode();
       }
-    }
-  }
 
-  updatePythonCode();
-}
+      /**
+       * Γεμίζει το πλέγμα τυχαία με τα διαθέσιμα χρώματα, με συμμετρικό τρόπο.
+       * Ενημερώνει τον κώδικα μετά τη γέμιση.
+       */
+      function fillSymmetric() {
+        const colors = Array.from(colorSwatches).map((s) => s.dataset.color);
+        const nonBlackColors = colors.filter((c) => c !== "#000000");
 
+        // Δημιουργία πίνακα 4x4 για την πάνω αριστερή γωνία
+        let cornerColors = [];
 
+        // Προσθέτουμε 8 μαύρα
+        for (let i = 0; i < 8; i++) {
+          cornerColors.push("#000000");
+        }
+        // Προσθέτουμε 8 τυχαία μη μαύρα χρώματα
+        for (let i = 0; i < 8; i++) {
+          const col =
+            nonBlackColors[Math.floor(Math.random() * nonBlackColors.length)];
+          cornerColors.push(col);
+        }
 
-  // Αρχική ενημέρωση κώδικα κατά τη φόρτωση της σελίδας
-  updatePythonCode();
-</script>
+        // Ανακατεύουμε τυχαία τα 16 χρώματα ώστε να μην είναι τα μαύρα συγκεντρωμένα
+        for (let i = cornerColors.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [cornerColors[i], cornerColors[j]] = [
+            cornerColors[j],
+            cornerColors[i],
+          ];
+        }
 
-</body>
+        // Γέμισμα της πάνω αριστερής γωνίας 4x4 με τα ανακατεμένα χρώματα
+        for (let r = 0; r < 4; r++) {
+          for (let c = 0; c < 4; c++) {
+            matrix[r][c] = cornerColors[r * 4 + c];
+          }
+        }
+
+        // Καθρεφτισμός οριζόντια (στη στήλη 7-c)
+        for (let r = 0; r < 4; r++) {
+          for (let c = 0; c < 4; c++) {
+            matrix[r][7 - c] = matrix[r][c];
+          }
+        }
+
+        // Καθρεφτισμός κάθετα (στη σειρά 7-r)
+        for (let r = 0; r < 4; r++) {
+          for (let c = 0; c < 8; c++) {
+            matrix[7 - r][c] = matrix[r][c];
+          }
+        }
+
+        // Ενημέρωση DOM LED
+        for (let r = 0; r < 8; r++) {
+          for (let c = 0; c < 8; c++) {
+            const col = matrix[r][c];
+            const led = ledMatrix.children[r * cols + c];
+            led.style.backgroundColor = col;
+            if (col === "#000000") {
+              led.classList.remove("on");
+            } else {
+              led.classList.add("on");
+            }
+          }
+        }
+
+        updatePythonCode();
+      }
+
+      // Αρχική ενημέρωση κώδικα κατά τη φόρτωση της σελίδας
+      updatePythonCode();
+    </script>
+  </body>
 </html>
